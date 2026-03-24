@@ -220,13 +220,20 @@ cd C:/Users/mashk/IdeaProjects/liferay-work
 git status
 
 
+
+
+
 ************** COMMANDES UTILES **********
 *NOTA:
 il faut être dans le bon dossier pour executer les commandes :
+
 cd C:\Users\mashk\IdeaProjects\liferay-work\infra
+Nota :
+il ne faut donc plus faire docker-compose down -v
+mais juste docker-compose down pour ne pas avoir une base de données vide  au redemarrage !
+# docker-compose down -v # (uniquement pour vider la base de donnée au redemarrage)
 
-
-docker-compose down -v
+docker-compose down
 
 Remove-Item .\liferay\data -Recurse -Force -ErrorAction Ignore
 Remove-Item .\postgres -Recurse -Force -ErrorAction Ignore

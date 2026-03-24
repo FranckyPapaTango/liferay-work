@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: liferay
       POSTGRES_INITDB_ARGS: "--encoding=UTF8"
     volumes:
-      - ./postgres:/var/lib/postgresql/data
+      - liferay_pgdata:/var/lib/postgresql/data   # ✅ volume Docker nommé pour persistance
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U liferay -d liferay" ]
       interval: 5s
@@ -19,7 +19,7 @@ services:
       retries: 10
 
   liferay:
-  #  image: liferay/dxp:2026.q1.0-lts
+    # image: liferay/dxp:2026.q1.0-lts
     image: liferay/portal:7.4.3.132-ga132
     container_name: liferay
     depends_on:
@@ -46,3 +46,7 @@ services:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+
+# 🔹 Volume nommé pour la DB PostgreSQL
+volumes:
+  liferay_pgdata:
