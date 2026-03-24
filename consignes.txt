@@ -1,0 +1,252 @@
+BUT :
+mettre en oeuvre de façon dockerisé tous le process-workflow de dev liferay
+afin de faciliter les dépendances, contraintes d'environnements et les déploiements en prod
+
+--------------------------------------------------------------------
+PLAN COMPLET + STRUCTURE + SCRIPTS, étape par étape, sans bricolage.
+--------------------------------------------------------------------
+
+Je vise au final
+2️⃣ “architecture prod complète (DB + Liferay + reverse proxy)”
+3️⃣ “pipeline CI/CD (build + deploy auto)”
+- mais avant en utilisant IntelliJ et PowerShell, et en versionnant au fur et à mesure sur github, je veux mettre au clair ici
+les étapes et éléments à mettre en place, depuis le début
+- *nota : regrouper tous les éléments dans C:\Users\mashk\IdeaProjects\liferay-work
+  (et non dans C:\Users\mashk\IdeaProjects)
+
+🧠 OBJECTIF FINAL
+✔ Dev local propre (IntelliJ)
+✔ Docker pour runtime
+✔ Reverse proxy (Nginx)
+✔ Base de données
+✔ Déploiement automatique
+✔ CI/CD GitHub
+👉 Le tout dans : C:\Users\mashk\IdeaProjects\liferay-work
+
+
+🏗️ 1. STRUCTURE PROJET (IMPORTANT)
+
+liferay-work/
+│
+├── infra/                  ← Docker (prod-ready)
+│   ├── docker-compose.yml
+│   ├── nginx/
+│   └── liferay/
+│   └── postgres/         ← nouveau pour PostgreSQL
+│
+├── dev/                    ← développement
+│   ├── modules/
+│   ├── themes/
+│   └── scripts/
+│
+├── .github/
+│   └── workflows/
+│
+└── README.md
+
+
+------------------------------------------
+🚀 2. INITIALISATION
+-----------------------------------------
+
+cd C:\Users\mashk\IdeaProjects
+mkdir liferay-work
+cd liferay-work
+
+mkdir infra, dev
+mkdir dev\modules, dev\themes, dev\scripts
+mkdir infra\nginx
+
+
+
+
+
+
+---------------------------------------------------
+🐳 3. DOCKER COMPOSE (ARCHI COMPLÈTE)
+---------------------------------------------------
+attention, c'est içi que l'on définit la base de donnée à utiliser
+par défault "lportal" *à changer au besoin
+
+AU PREALABLE DEMARRER L'APP DOCKER DESKTOP
+cd C:\Users\mashk\IdeaProjects\liferay-work\infra
+
+y créer :
+📄 docker-compose.yml
+avec le contenu :
+
+
+
+version: '3.8'
+
+services:
+
+  liferay:
+    image: liferay/dxp:2026.q1.0-lts
+    container_name: liferay
+    depends_on:
+      - db
+    environment:
+      # URL JDBC pour PostgreSQL
+      - LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL=jdbc:postgresql://db:5432/lportal
+      - LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_USERNAME=liferay
+      - LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_PASSWORD=liferay
+    volumes:
+      - ../infra/liferay/deploy:/opt/liferay/deploy
+      - ../infra/liferay/data:/opt/liferay/data
+      - ../infra/liferay/logs:/opt/liferay/logs
+    ports:
+      - "8080:8080"
+
+  db:
+    image: postgres:15
+    container_name: liferay-db
+    environment:
+      - POSTGRES_DB=lportal
+      - POSTGRES_USER=liferay
+      - POSTGRES_PASSWORD=liferay
+    volumes:
+      - ../infra/postgres:/var/lib/postgresql/data
+
+  nginx:
+    image: nginx:latest
+    container_name: liferay-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - liferay
+---------------------------------------------------
+1️⃣ 🔥 Ajouter portal-ext.properties (OBLIGATOIRE)
+---------------------------------------------------
+* sans ce fichier le dialect ou le jdbc risque d'être introuvables
+ce qui engendre un database NULL et le bug de démarrage associé
+
+cd C:\Users\mashk\IdeaProjects\liferay-work\infra\liferay
+Crée ce fichier :
+
+📁 portal-ext.properties
+avec ce contenu:
+
+
+jdbc.default.driverClassName=org.postgresql.Driver
+jdbc.default.url=jdbc:postgresql://db:5432/liferay
+jdbc.default.username=liferay
+jdbc.default.password=liferay
+
+hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+web.server.protocol=http
+web.server.host=localhost
+web.server.port=80
+
+portal.proxy.enabled=true
+
+redirect.url.security.mode=domain
+
+------------------------------------
+🌐 4. NGINX (REVERSE PROXY)
+-------------------------------------
+cd C:\Users\mashk\IdeaProjects\liferay-work\infra\nginx
+
+y créer :
+📄 default.conf
+avec le contenu :
+
+
+server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+        proxy_pass http://liferay:8080;
+
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Server $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_redirect off;
+    }
+}
+
+
+-------------------------------
+▶️ 5. LANCER L’INFRA
+------------------------------
+AU PREALABLE DEMARRER L'APP DOCKER DESKTOP
+cd C:\Users\mashk\IdeaProjects\liferay-work\infra
+
+docker compose up -d
+
+👉 Accès :
+
+http://localhost
+* à ce stade la page affiche : "État HTTP 404 – Non trouvé"
+
+
+----------------------------
+VERSIONNING GIT-GITHUB
+----------------------------
+le versionning bloque si
+Le dossier appartient à Administrateurs (BUILTIN)
+Mais tu exécutes Git avec l’utilisateur mashk
+
+✅ Solution rapide (recommandée dans ton cas)
+Exécute exactement la commande dans le Terminal d'IntelliJ:
+
+git config --global --add safe.directory C:/Users/mashk/IdeaProjects/liferay-work
+
+👉 Ensuite :
+
+cd C:/Users/mashk/IdeaProjects/liferay-work
+git status
+
+
+************** COMMANDES UTILES **********
+*NOTA:
+il faut être dans le bon dossier pour executer les commandes :
+cd C:\Users\mashk\IdeaProjects\liferay-work\infra
+
+
+docker-compose down -v
+
+Remove-Item .\liferay\data -Recurse -Force -ErrorAction Ignore
+Remove-Item .\postgres -Recurse -Force -ErrorAction Ignore
+
+docker-compose up -d
+docker logs -f liferay
+
+******************************************
+
+
+
+
+////////////////    BUGS & FAUX BUGS /////////////////////////////
+
+je viens de constater que le "sign in"  fonctionne sur les navigateur Brave et Firefox , pas sur Edge
+
+=> Si ça marche sur Brave / Firefox mais pas sur Edge →
+   👉 ce n’est PAS un problème NGINX ni Liferay backend
+   👉 Edge est beaucoup plus agressif que Brave/Firefox sur :
+   cache
+   cookies SameSite
+   tracking prevention
+   ✅ ✅ SOLUTION (rapide et efficace)
+   🔥 1️⃣ Reset complet Edge (OBLIGATOIRE)
+
+   Dans Edge :
+   👉 Va ici : edge://settings/clearBrowserData
+   👉 Coche :
+   ✔️ Cached images and files
+   ✔️ Cookies and other site data
+   👉 Période : All time
+
+   👉 Clique Clear now
