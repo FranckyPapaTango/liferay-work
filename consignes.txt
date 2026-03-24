@@ -77,46 +77,56 @@ avec le contenu :
 
 
 
-version: '3.8'
+# version: '3.8'
 
 services:
-
-  liferay:
-    image: liferay/dxp:2026.q1.0-lts
-    container_name: liferay
-    depends_on:
-      - db
-    environment:
-      # URL JDBC pour PostgreSQL
-      - LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL=jdbc:postgresql://db:5432/lportal
-      - LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_USERNAME=liferay
-      - LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_PASSWORD=liferay
-    volumes:
-      - ../infra/liferay/deploy:/opt/liferay/deploy
-      - ../infra/liferay/data:/opt/liferay/data
-      - ../infra/liferay/logs:/opt/liferay/logs
-    ports:
-      - "8080:8080"
 
   db:
     image: postgres:15
     container_name: liferay-db
     environment:
-      - POSTGRES_DB=lportal
-      - POSTGRES_USER=liferay
-      - POSTGRES_PASSWORD=liferay
+      POSTGRES_DB: liferay
+      POSTGRES_USER: liferay
+      POSTGRES_PASSWORD: liferay
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
     volumes:
-      - ../infra/postgres:/var/lib/postgresql/data
+      - ./postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U liferay -d liferay" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  liferay:
+  #  image: liferay/dxp:2026.q1.0-lts
+    image: liferay/portal:7.4.3.132-ga132
+    container_name: liferay
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_URL: jdbc:postgresql://db:5432/liferay
+      LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_USERNAME: liferay
+      LIFERAY_JDBC_PERIOD_DEFAULT_PERIOD_PASSWORD: liferay
+    volumes:
+      - ./liferay/deploy:/opt/liferay/deploy
+      - ./liferay/data:/opt/liferay/data
+      - ./liferay/logs:/opt/liferay/logs
+      - ./liferay/portal-ext.properties:/opt/liferay/portal-ext.properties
+    ports:
+      - "8080:8080"
 
   nginx:
     image: nginx:latest
     container_name: liferay-nginx
+    depends_on:
+      - liferay
     ports:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
-    depends_on:
-      - liferay
+
+
 ---------------------------------------------------
 1️⃣ 🔥 Ajouter portal-ext.properties (OBLIGATOIRE)
 ---------------------------------------------------
