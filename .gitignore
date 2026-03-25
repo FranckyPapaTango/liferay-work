@@ -1,0 +1,19 @@
+# IntelliJ
+.idea/*
+!.idea/vcs.xml
+!.idea/misc.xml
+*.iml
+
+# Liferay
+liferay/data/
+liferay/logs/
+liferay/osgi/state/
+
+# Docker
+postgres/
+infra/liferay/data/
+infra/liferay/logs/
+
+# OS
+.DS_Store
+Thumbs.db
